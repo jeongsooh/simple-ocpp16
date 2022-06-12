@@ -12,47 +12,54 @@ except ModuleNotFoundError:
     import sys
     sys.exit(1)
 
-
-from ocpp.v16 import call
+from ocpp.routing import on
+from ocpp.v16 import call, call_result
 from ocpp.v16 import ChargePoint as cp
-from ocpp.v16.enums import RegistrationStatus
+from ocpp.v16.enums import RegistrationStatus, Action
 
 logging.basicConfig(level=logging.INFO)
 
+heartbeat_interval = 60
 
-# class ChargePoint(cp):
-#     async def send_boot_notification(self):
-#         request = call.BootNotificationPayload(
-#             charge_point_model="Optimus",
-#             charge_point_vendor="The Mobility House"
-#         )
-
-#         response = await self.call(request)
-
-#         if response.status == RegistrationStatus.accepted:
-#             print("Connected to central system.")
-
+async def heartbeat_send(cp, interval):
+    while True:
+        print(interval)
+        await cp.send_heartbeat()
+        await asyncio.sleep(interval)
 
 async def main():
+
+
     async with websockets.connect(
-        'ws://106.10.32.171:9000/CP_1',
+        'ws://127.0.0.1:9001/webServices/ocpp/100013',
         subprotocols=['ocpp1.6']
     ) as ws:
 
-        cp = ChargePoint('CP_1', ws)
+    # async with websockets.connect(
+    #     'ws://emcms.watchpoint.co.kr/webServices/ocpp/100198',
+    #     subprotocols=['ocpp1.6']
+    # ) as ws:
+
+        cp = ChargePoint('100013', ws)
 
         await asyncio.gather(
           cp.start(), 
           cp.send_boot_notification(),
-          cp.send_status_notification('Available'),
-          cp.send_authorize(),
-          cp.send_start_transaction(),
-          cp.send_status_notification('Charging'),
-          cp.send_meter_value(),
-          cp.send_stop_transaction(),
-          cp.send_status_notification('Available'),
-          cp.send_heartbeat()
+          heartbeat_send(cp, heartbeat_interval)
         )
+
+        # await asyncio.gather(
+        #   cp.start(), 
+        #   cp.send_boot_notification(),
+        #   cp.send_status_notification('Available'),
+        #   cp.send_authorize(),
+        #   cp.send_start_transaction(),
+        #   cp.send_status_notification('Charging'),
+        #   cp.send_meter_value(),
+        #   cp.send_stop_transaction(),
+        #   cp.send_status_notification('Available'),
+        #   cp.send_heartbeat()
+        # )
 
 
 if __name__ == '__main__':
@@ -66,3 +73,47 @@ if __name__ == '__main__':
         loop = asyncio.get_event_loop()
         loop.run_until_complete(main())
         loop.close()
+
+
+# [
+#     2,
+#     "1007",
+#     "MeterValue",
+#     {
+#         "connectorId":1,
+#         "meterValue":[
+#             {
+#                 "sampledValue":[
+#                     {"context":"Sample_Periodic","format":"Raw","unit":"Wh","value":"600"}, 
+#                     {"context":"Sample_Periodic","format":"Raw","unit":"Wh","value":"600"}
+#                 ],
+#                 "timestamp":"2022-06-07T16:55:14Z"
+#             }
+#         ],
+#         "transactionId":1
+#     }
+# ]
+
+# [
+#     2,
+#     "58627f71-3742-4434-8977-2f49e94b00a7",
+#     "MeterValues",
+#     {
+#         "connectorId":1,
+#         "meterValue":[
+#             {
+#                 "timestamp":"2022-06-08T01:50:49.907787",
+#                 "sampledValue":[
+#                     {"value":"20","context":"Sample.Periodic","format":"Raw","unit":"Wh"}
+#                 ]
+#             },
+#             {
+#                 "timestamp":"2022-06-08T01:50:49.907787",
+#                 "sampledValue":[{"value":"20","context":"Sample.Periodic","format":"Raw","unit":"Wh"}]
+#             },
+#             {"timestamp":"2022-06-08T01:50:49.907787","sampledValue":[{"value":"30","context":"Sample.Periodic","format":"Raw","unit":"Wh"}]},
+#             {"timestamp":"2022-06-08T01:50:49.907787","sampledValue":[{"value":"30","context":"Sample.Periodic","format":"Raw","unit":"Wh"}]}
+#         ],
+#         "transactionId":2
+#     }
+# ]
